@@ -3,7 +3,7 @@ package lang
 import (
 	"io"
 
-	"github.com/roman-mazur/architecture-lab-3/painter"
+	"github.com/Illyakravchuk/lab_3/painter"
 )
 
 // Parser уміє прочитати дані з вхідного io.Reader та повернути список операцій представлені вхідним скриптом.
