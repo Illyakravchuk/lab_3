@@ -4,9 +4,10 @@ import (
 	"image"
 	"image/color"
 	"log"
-
-	"golang.org/x/exp/shiny/driver"
+	"fmt"
+	
 	"golang.org/x/exp/shiny/imageutil"
+	"golang.org/x/exp/shiny/driver"
 	"golang.org/x/exp/shiny/screen"
 	"golang.org/x/image/draw"
 	"golang.org/x/mobile/event/key"
@@ -27,6 +28,7 @@ type Visualizer struct {
 
 	sz  size.Event
 	pos image.Rectangle
+	mousePos image.Point
 }
 
 func (pw *Visualizer) Main() {
@@ -34,6 +36,7 @@ func (pw *Visualizer) Main() {
 	pw.done = make(chan struct{})
 	pw.pos.Max.X = 200
 	pw.pos.Max.Y = 200
+	pw.mousePos = image.Point{X:400, Y: 400}
 	driver.Main(pw.run)
 }
 
@@ -48,6 +51,8 @@ func (pw *Visualizer) run(s screen.Screen) {
 
 	w, err := s.NewWindow(&screen.NewWindowOptions{
 		Title: pw.Title,
+		Width: 800,
+		Height: 800,
 	})
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
@@ -116,6 +121,14 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 	case mouse.Event:
 		if t == nil {
 			// TODO: Реалізувати реакцію на натискання кнопки миші.
+			if e.Button == mouse.ButtonLeft && e.Direction == mouse.DirPress {
+				pw.mousePos = image.Point{
+					X: int(e.X),
+					Y: int(e.Y),
+				}
+				pw.w.Send(paint.Event{})
+				fmt.Println("X pos, Y pos: ", e.X, e.Y)
+			}
 		}
 
 	case paint.Event:
@@ -131,11 +144,16 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 }
 
 func (pw *Visualizer) drawDefaultUI() {
-	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
+	pw.w.Fill(pw.sz.Bounds(), color.White, draw.Src) // Фон.
 
-	// TODO: Змінити колір фону та додати відображення фігури у вашому варіанті.
+	x, y := pw.mousePos.X, pw.mousePos.Y
 
-	// Малювання білої рамки.
+	height, width := 400, 150
+	yellow := color.RGBA{255, 255, 0, 255}
+
+	pw.w.Fill(image.Rect(x-width/2, y+width, x+width/2, y), yellow, draw.Src)
+	pw.w.Fill(image.Rect(x-height/2, y-height/2, x+height/2, y), yellow, draw.Src)
+
 	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
 		pw.w.Fill(br, color.White, draw.Src)
 	}
