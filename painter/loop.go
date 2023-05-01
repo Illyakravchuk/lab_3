@@ -27,19 +27,33 @@ var size = image.Pt(400, 400)
 func (l *Loop) Start(s screen.Screen) {
 	l.next, _ = s.NewTexture(size)
 	l.prev, _ = s.NewTexture(size)
+	l.mq = messageQueue{}
+	go l.processEvents()
 
 	// TODO: ініціалізувати чергу подій.
 	// TODO: запустити рутину обробки повідомлень у черзі подій.
 }
 
+func (l *Loop) processEvents() {
+	for {
+		op := l.mq.pull()
+		l.Post(op)
+	}
+}
+
 // Post додає нову операцію у внутрішню чергу.
 func (l *Loop) Post(op Operation) {
-	// TODO: реалізувати додавання операції в чергу. Поточна імплементація
-	update := op.Do(l.next)
-	if update {
-		l.Receiver.Update(l.next)
-		l.next, l.prev = l.prev, l.next
-	}
+    if op == nil {
+        return
+    }
+
+    l.mq.push(op)
+
+    update := op.Do(l.next)
+    if update {
+        l.Receiver.Update(l.next)
+        l.next, l.prev = l.prev, l.next
+    }
 }
 
 // StopAndWait сигналізує
@@ -49,8 +63,21 @@ func (l *Loop) StopAndWait() {
 
 // TODO: реалізувати власну чергу повідомлень.
 type messageQueue struct {
+	queue []Operation
 }
 
-func (mq *messageQueue) push(op Operation) {}
+func (mq *messageQueue) push(op Operation) {
+	mq.queue = append(mq.queue, op)
+}
 
-func (mq *messageQueue) pull() Operation { return nil }
+func (mq *messageQueue) pull() Operation {
+	if len(mq.queue) == 0 {
+		return nil
+	}
+
+	op := mq.queue[0]
+	mq.queue = mq.queue[1:]
+
+	return op
+}
+
