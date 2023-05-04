@@ -14,7 +14,7 @@ import (
 type Parser struct {
 	bgRect  *painter.BgRectangle
 	backOp  painter.Operation
-	move    []painter.Operation
+	move    painter.Operation
 	figures []*painter.Figure
 	res     []painter.Operation
 	update  painter.Operation
@@ -54,7 +54,7 @@ func (p *Parser) Parse(in io.Reader) ([]painter.Operation, error) {
 		p.res = append(p.res, p.bgRect)
 	}
 	if p.move != nil {
-		p.res = append(p.res, p.move...)
+		p.res = append(p.res, p.move)
 	}
 	for _, figure := range p.figures {
 		p.res = append(p.res, figure)
@@ -73,7 +73,7 @@ func (p *Parser) genOperations() []painter.Operation {
 		res = append(res, p.bgRect)
 	}
 	if p.move != nil {
-		res = append(res, p.move...)
+		res = append(res, p.move)
 		p.move = nil
 	}
 	for _, figure := range p.figures {
@@ -118,6 +118,7 @@ func (p *Parser) parse(commandLine string) error {
 	case "move":
 		moveOp := &painter.Move{X: args[0], Y: args[1], Figures: p.figures}
 		p.move = moveOp
+		p.res = append(p.res, moveOp)
 	case "reset":
 		p.figures = nil
 		p.bgRect = nil

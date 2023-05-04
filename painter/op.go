@@ -51,35 +51,35 @@ func GreenFill(t screen.Texture) {
 
 
 type BgRectangle struct {
-	x1, y1, x2, y2 int
+	X1, Y1, X2, Y2 int
 }
 
 func (op *BgRectangle) Do(t screen.Texture) bool {
-	t.Fill(image.Rect(op.x1, op.y1, op.x2, op.y2), color.Black, screen.Src)
+	t.Fill(image.Rect(op.X1, op.Y1, op.X2, op.Y2), color.Black, screen.Src)
 	return false
 }
 
 type Figure struct {
-	x, y int
+	X, Y int
 }
 
 func (op *Figure) Do(t screen.Texture) bool {
 	height, width := 400, 150
 	yellow := color.RGBA{255, 255, 0, 255}
-	t.Fill(image.Rect(op.x-width/2, op.y+width, op.x+width/2, op.y), yellow, draw.Src)
-	t.Fill(image.Rect(op.x-height/2, op.y-height/2, op.x+height/2, op.y), yellow, draw.Src)
+	t.Fill(image.Rect(op.X-width/2, op.Y+width, op.X+width/2, op.Y), yellow, draw.Src)
+	t.Fill(image.Rect(op.X-height/2, op.Y-height/2, op.X+height/2, op.Y), yellow, draw.Src)
 	return false
 }
 
 type Move struct {
-	x, y    int
+	X, Y    int
 	Figures []*Figure
 }
 
 func (op *Move) Do(t screen.Texture) bool {
 	for _, figure := range op.Figures {
-		figure.x = op.x
-		figure.y = op.y
+		figure.X += op.X
+		figure.Y += op.Y
 	}
 	return false
 }
