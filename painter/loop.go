@@ -21,7 +21,7 @@ type Loop struct {
 	mq messageQueue
 }
 
-var size = image.Pt(400, 400)
+var size = image.Pt(800, 800)
 
 // Start запускає цикл подій. Цей метод потрібно запустити до того, як викликати на ньому будь-які інші методи.
 func (l *Loop) Start(s screen.Screen) {
