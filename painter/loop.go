@@ -1,83 +1,96 @@
 package painter
 
 import (
-	"image"
+    "image"
+    "sync"
 
-	"golang.org/x/exp/shiny/screen"
+    "golang.org/x/exp/shiny/screen"
 )
 
-// Receiver отримує текстуру, яка була підготовлена в результаті виконання команд у циелі подій.
 type Receiver interface {
-	Update(t screen.Texture)
+    Update(screen.Texture)
 }
 
-// Loop реалізує цикл подій для формування текстури отриманої через виконання операцій отриманих з внутрішньої черги.
 type Loop struct {
-	Receiver Receiver
-
-	next screen.Texture // текстура, яка зараз формується
-	prev screen.Texture // текстура, яка була відправленя останнього разу у Receiver
-
-	mq messageQueue
+    Receiver Receiver
+    next     screen.Texture
+    prev     screen.Texture
+    Mq       MessageQueue
+    done     chan struct{}
+    stopped  bool
 }
 
 var size = image.Pt(800, 800)
 
-// Start запускає цикл подій. Цей метод потрібно запустити до того, як викликати на ньому будь-які інші методи.
 func (l *Loop) Start(s screen.Screen) {
-	l.next, _ = s.NewTexture(size)
-	l.prev, _ = s.NewTexture(size)
-	l.mq = messageQueue{}
-	go l.processEvents()
+    l.next, _ = s.NewTexture(size)
+    l.prev, _ = s.NewTexture(size)
 
-	// TODO: ініціалізувати чергу подій.
-	// TODO: запустити рутину обробки повідомлень у черзі подій.
+    l.done = make(chan struct{})
+
+    go func() {
+        for !l.stopped || !l.Mq.isEmpty() {
+            op := l.Mq.Pull()
+            update := op.Do(l.next)
+            if update {
+                l.Receiver.Update(l.next)
+                l.next, l.prev = l.prev, l.next
+            }
+        }
+        close(l.done)
+    }()
 }
 
-func (l *Loop) processEvents() {
-	for {
-		op := l.mq.pull()
-		l.Post(op)
-	}
-}
-
-// Post додає нову операцію у внутрішню чергу.
 func (l *Loop) Post(op Operation) {
-    if op == nil {
-        return
-    }
-
-    l.mq.push(op)
-
-    update := op.Do(l.next)
-    if update {
-        l.Receiver.Update(l.next)
-        l.next, l.prev = l.prev, l.next
-    }
+    l.Mq.Push(op)
 }
 
-// StopAndWait сигналізує
 func (l *Loop) StopAndWait() {
-
+    l.Post(OperationFunc(func(t screen.Texture) {
+        l.stopped = true
+    }))
+    l.stopped = true
+    <-l.done
 }
 
-// TODO: реалізувати власну чергу повідомлень.
-type messageQueue struct {
-	queue []Operation
+type MessageQueue struct {
+    Operations []Operation
+    mu         sync.Mutex
+    blocked    chan struct{}
 }
 
-func (mq *messageQueue) push(op Operation) {
-	mq.queue = append(mq.queue, op)
+func (Mq *MessageQueue) Push(op Operation) {
+    Mq.mu.Lock()
+    defer Mq.mu.Unlock()
+
+    Mq.Operations = append(Mq.Operations, op)
+
+    if Mq.blocked != nil {
+        close(Mq.blocked)
+        Mq.blocked = nil
+    }
 }
 
-func (mq *messageQueue) pull() Operation {
-	if len(mq.queue) == 0 {
-		return nil
-	}
+func (Mq *MessageQueue) Pull() Operation {
+    Mq.mu.Lock()
+    defer Mq.mu.Unlock()
 
-	op := mq.queue[0]
-	mq.queue = mq.queue[1:]
+    for len(Mq.Operations) == 0 {
+        Mq.blocked = make(chan struct{})
+        Mq.mu.Unlock()
+        <-Mq.blocked
+        Mq.mu.Lock()
+    }
 
-	return op
+    op := Mq.Operations[0]
+    Mq.Operations[0] = nil
+    Mq.Operations = Mq.Operations[1:]
+    return op
 }
 
+func (Mq *MessageQueue) isEmpty() bool {
+    Mq.mu.Lock()
+    defer Mq.mu.Unlock()
+
+    return len(Mq.Operations) == 0
+}
